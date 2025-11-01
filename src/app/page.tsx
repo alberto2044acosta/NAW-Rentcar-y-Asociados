@@ -12,18 +12,18 @@ export default function Home() {
   };
 
   return (
-    <div>
+    <div className="container" style={{ width: "320px" }}>
       <h1>NAW Rentcar y Asociados. S.R.L</h1>
       <h2>Inicio de Sesión</h2>
 
-      <div>
+      <div style={{ marginBottom: "15px" }}>
         <label>Nombre:</label>
         <input type="text" placeholder="Ingresa tu nombre" />
       </div>
 
-      <div style={{ marginTop: "10px" }}>
+      <div style={{ marginBottom: "20px" }}>
         <label>Contraseña:</label>
-        <div style={{ display: "flex" }}>
+        <div style={{ display: "flex", marginTop: "5px" }}>
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Ingresa tu contraseña"
@@ -38,9 +38,9 @@ export default function Home() {
         </div>
       </div>
 
-      <div style={{ marginTop: "20px" }}>
-        <button onClick={handleEnter}>Entrar</button>
-      </div>
+      <button onClick={handleEnter} style={{ width: "100%", marginTop: "10px" }}>
+        Entrar
+      </button>
     </div>
   );
 }

@@ -23,12 +23,15 @@ export default function Dashboard() {
   }, []);
 
   return (
-    <div>
+    <div className="container" style={{ width: "420px" }}>
       <h1>Vehículos disponibles</h1>
-      <ul>
+      <ul className="vehiculo-lista">
         {vehiculos.map((v) => (
-          <li key={v.id}>
-            {v.marca} {v.modelo} - {v.anio} (${v.precio_diario}/día)
+          <li key={v.id} className="vehiculo-item">
+            <strong>
+              {v.marca} {v.modelo}
+            </strong>{" "}
+            - {v.anio} (${v.precio_diario}/día)
           </li>
         ))}
       </ul>
