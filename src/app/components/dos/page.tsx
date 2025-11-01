@@ -1,15 +1,40 @@
-export default function Dos(){
-    return(
-        <div>
-            <h1>NAW Rentcar y Asociados. S.R.L</h1>
-            <p>Pagina 2</p>
-                <p>Version 2</p>
-                <p>Los botones ya tienen que tener funcionalidades, es decir, crear todas las tablas de la base de datos y el codigo necesario para llamarlas</p>
-                <p>Pon el css o tailwind bien bonito</p>
-                <p>-</p>
-                <h1>NAW Rentcar y Asociados. S.R.L</h1>
-                <button>Alquilar vehiculo</button>
-                <button>Poner vehiculo en alquiler</button>
-        </div>
-    )  
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface Vehiculo {
+  id: number;
+  marca: string;
+  modelo: string;
+  anio: number;
+  precio_diario: number;
+}
+
+export default function Dos() {
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
+
+  useEffect(() => {
+    async function fetchVehiculos() {
+      const res = await fetch("/api/vehiculos");
+      const data: Vehiculo[] = await res.json();
+      setVehiculos(data);
+    }
+    fetchVehiculos();
+  }, []);
+
+  return (
+    <div className="container" style={{ width: "420px" }}>
+      <h1>Vehículos disponibles</h1>
+      <ul className="vehiculo-lista">
+        {vehiculos.map((v) => (
+          <li key={v.id} className="vehiculo-item">
+            <strong>
+              {v.marca} {v.modelo}
+            </strong>{" "}
+            - {v.anio} (${v.precio_diario}/día)
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
