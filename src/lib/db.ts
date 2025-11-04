@@ -1,13 +1,32 @@
+// /lib/db.ts
 import mysql from "mysql2/promise";
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASS || "",
-  database: process.env.DB_NAME || "naw_rentcar",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+let pool: mysql.Pool | null = null;
 
-export default pool;
+async function initDB() {
+  if (!pool) {
+    try {
+      pool = mysql.createPool({
+        host: "localhost",
+        user: "root",
+        password: "",
+        database: "naw_rentcar",
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+      });
+
+      // Probar la conexión
+      const connection = await pool.getConnection();
+      console.log("✅ Conectado correctamente a la base de datos naw_rentcar.");
+      connection.release();
+    } catch (error) {
+      console.error("❌ Error al conectar con la base de datos:", error);
+    }
+  }
+  return pool!;
+}
+
+const db = await initDB();
+
+export default db;
