@@ -5,17 +5,31 @@ import {
   validarCorreo,
   validarContrasena,
   validarCamposVacios,
+  validarTipoRegistroPublico,
 } from "@/lib/validations";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
-// 🧩 POST /api/usuarios → Registrar usuario
+// POST /api/usuarios -> registro público (siempre crea tipo = 'cliente')
 export async function POST(req: Request) {
   try {
-    const { nombre, correo, contrasena, tipo } = await req.json();
+    const body = await req.json();
+    const { nombre, correo, contrasena, tipo } = body;
 
-    validarCamposVacios({ nombre, correo, contrasena });
+    // Validar campos obligatorios (retorna boolean)
+    const ok = validarCamposVacios({ nombre, correo, contrasena });
+    if (!ok) {
+      return NextResponse.json(
+        { error: "Todos los campos obligatorios deben completarse." },
+        { status: 400 }
+      );
+    }
+
+    // Validaciones detalladas (lanzan Error si no cumplen)
     validarCorreo(correo);
     validarContrasena(contrasena);
+
+    // Si el body intenta pedir un tipo que no sea 'cliente', rechazar
+    validarTipoRegistroPublico(tipo);
 
     // Verificar si ya existe el correo
     const [existe] = await pool.query<RowDataPacket[]>(
@@ -23,26 +37,30 @@ export async function POST(req: Request) {
       [correo]
     );
 
-    if (existe.length > 0) {
+    if ((existe as any[]).length > 0) {
       return NextResponse.json(
         { error: "El correo ya está registrado" },
         { status: 400 }
       );
     }
 
-    // 🔐 Encriptar la contraseña antes de guardar
+    // Encriptar la contraseña antes de guardar
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
-    // Guardar usuario con la contraseña encriptada
+    // Forzar tipo = 'cliente'
+    const tipoFinal = "cliente";
+
+    // Insertar usuario (activo por defecto)
     const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO usuarios (nombre, correo, contrasena, tipo) VALUES (?, ?, ?, ?)",
-      [nombre, correo, hashedPassword, tipo || "cliente"]
+      "INSERT INTO usuarios (nombre, correo, contrasena, tipo, activo) VALUES (?, ?, ?, ?, 1)",
+      [nombre, correo, hashedPassword, tipoFinal]
     );
 
     return NextResponse.json({
       success: true,
       message: "Usuario registrado correctamente",
-      id_usuario: result.insertId,
+      id_usuario: (result as ResultSetHeader).insertId,
+      tipo: tipoFinal,
     });
   } catch (error: any) {
     console.error("Error al registrar usuario:", error);
@@ -53,13 +71,17 @@ export async function POST(req: Request) {
   }
 }
 
-// 🧩 PUT /api/usuarios → Actualizar usuario
+// PUT /api/usuarios -> actualizar usuario (mantener acceso admin/propietario gestionado en otro prompt)
 export async function PUT(req: Request) {
   try {
     const { id_usuario, nombre, correo, contrasena, tipo, activo } =
       await req.json();
 
-    validarCamposVacios({ id_usuario });
+    const ok = validarCamposVacios({ id_usuario });
+    if (!ok) {
+      return NextResponse.json({ error: "id_usuario es obligatorio" }, { status: 400 });
+    }
+
     if (correo) validarCorreo(correo);
     if (contrasena) validarContrasena(contrasena);
 

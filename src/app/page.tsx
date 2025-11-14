@@ -1,91 +1,78 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const [correo, setCorreo] = useState("");
+  const [contrasena, setContrasena] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const [correo, setCorreo] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
 
-    if (!correo || !contrasena) {
-      alert('Por favor, completa todos los campos.');
-      return;
-    }
-
-    setLoading(true);
     try {
-      const res = await fetch('/api/usuarios/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ correo, contrasena }),
       });
-
       const data = await res.json();
-
       if (!res.ok) {
-        alert(data.error || 'Error al iniciar sesión.');
+        setError(data.error || "Error en login");
         return;
       }
 
-      // Guarda los datos del usuario por separado
-      localStorage.setItem('usuario', JSON.stringify(data.usuario));
-      localStorage.setItem('nombreUsuario', data.usuario.nombre);
-      localStorage.setItem('tipoUsuario', data.usuario.tipo);
-
-      alert(`Bienvenido, ${data.usuario.nombre}`);
-      router.push('/dashboard');
-    } catch (error) {
-      alert('Error de conexión con el servidor.');
-      console.error(error);
-    } finally {
-      setLoading(false);
+      if (data.success) {
+        // Guardado simple en localStorage; se reemplazará por sesión segura en otro prompt
+        localStorage.setItem("user", JSON.stringify({
+          id_usuario: data.id_usuario,
+          nombre: data.nombre,
+          correo: data.correo,
+          tipo: data.tipo
+        }));
+        router.push("/dashboard");
+      } else {
+        setError(data.error || "Credenciales inválidas");
+      }
+    } catch (err:any) {
+      setError(err.message || "Error de red");
     }
-  };
+  }
 
   return (
-    <main className="flex flex-col items-center justify-center h-screen bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-6 rounded-xl shadow-lg w-80"
-      >
-        <h2 className="text-2xl font-semibold text-center mb-4">Iniciar Sesión</h2>
+    <main className="flex items-center justify-center min-h-screen bg-gray-50">
+      <form onSubmit={handleLogin} className="bg-white p-6 rounded shadow-md w-full max-w-sm">
+        <h1 className="text-xl font-bold mb-4">Iniciar sesión</h1>
 
-        <input
-          type="email"
-          placeholder="Correo electrónico"
-          value={correo}
-          onChange={(e) => setCorreo(e.target.value)}
-          className="border w-full p-2 rounded mb-3"
-        />
+        <label className="block mb-2">
+          Correo
+          <input
+            type="email"
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+            className="border w-full p-2 rounded mt-1"
+            required
+          />
+        </label>
 
-        <input
-          type="password"
-          placeholder="Contraseña"
-          value={contrasena}
-          onChange={(e) => setContrasena(e.target.value)}
-          className="border w-full p-2 rounded mb-4"
-        />
+        <label className="block mb-4">
+          Contraseña
+          <input
+            type="password"
+            value={contrasena}
+            onChange={(e) => setContrasena(e.target.value)}
+            className="border w-full p-2 rounded mt-1"
+            required
+          />
+        </label>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={`${
-            loading ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
-          } text-white w-full p-2 rounded`}
-        >
-          {loading ? 'Ingresando...' : 'Entrar'}
+        <button className="bg-blue-600 text-white p-2 rounded w-full" type="submit">
+          Entrar
         </button>
 
-        <p className="text-center mt-4">
-          ¿No tienes cuenta?{' '}
-          <a href="/registro" className="text-blue-600 hover:underline">
-            Regístrate aquí
-          </a>
-        </p>
+        {error && <p className="text-red-600 mt-3">{error}</p>}
       </form>
     </main>
   );
