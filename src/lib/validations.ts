@@ -1,10 +1,7 @@
-// Utilidades de validación simples y reutilizables
-
+// ...existing code...
 export function validarCamposVacios(obj: Record<string, any>): boolean {
-  // Retorna false si algún campo obligatorio es null/undefined/empty string
   for (const key of Object.keys(obj)) {
     const val = obj[key];
-    // permitir 0 numérico; considerar vacío: undefined, null, ''
     if (val === undefined || val === null) return false;
     if (typeof val === "string" && val.trim() === "") return false;
   }
@@ -21,7 +18,6 @@ export function validarCorreo(correo: string) {
 
 export function validarContrasena(contrasena: string) {
   if (!contrasena || typeof contrasena !== "string") throw new Error("Contraseña inválida");
-  // Reglas mínimas: 6 caracteres. Ajusta según necesites.
   if (contrasena.length < 6) {
     throw new Error("La contraseña debe tener al menos 6 caracteres");
   }

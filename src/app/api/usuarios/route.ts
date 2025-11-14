@@ -1,3 +1,4 @@
+// ...existing code...
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import bcrypt from "bcryptjs";
@@ -15,7 +16,6 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { nombre, correo, contrasena, tipo } = body;
 
-    // Validar campos obligatorios (retorna boolean)
     const ok = validarCamposVacios({ nombre, correo, contrasena });
     if (!ok) {
       return NextResponse.json(
@@ -24,14 +24,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validaciones detalladas (lanzan Error si no cumplen)
     validarCorreo(correo);
     validarContrasena(contrasena);
-
-    // Si el body intenta pedir un tipo que no sea 'cliente', rechazar
     validarTipoRegistroPublico(tipo);
 
-    // Verificar si ya existe el correo
     const [existe] = await pool.query<RowDataPacket[]>(
       "SELECT id_usuario FROM usuarios WHERE correo = ?",
       [correo]
@@ -44,13 +40,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Encriptar la contraseña antes de guardar
     const hashedPassword = await bcrypt.hash(contrasena, 10);
-
-    // Forzar tipo = 'cliente'
     const tipoFinal = "cliente";
 
-    // Insertar usuario (activo por defecto)
     const [result] = await pool.query<ResultSetHeader>(
       "INSERT INTO usuarios (nombre, correo, contrasena, tipo, activo) VALUES (?, ?, ?, ?, 1)",
       [nombre, correo, hashedPassword, tipoFinal]
@@ -71,7 +63,7 @@ export async function POST(req: Request) {
   }
 }
 
-// PUT /api/usuarios -> actualizar usuario (mantener acceso admin/propietario gestionado en otro prompt)
+// PUT /api/usuarios -> actualizar usuario
 export async function PUT(req: Request) {
   try {
     const { id_usuario, nombre, correo, contrasena, tipo, activo } =

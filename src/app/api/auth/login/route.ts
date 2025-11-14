@@ -1,3 +1,4 @@
+// ...existing code...
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 import bcrypt from "bcryptjs";
@@ -35,7 +36,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
-    // Respuesta simple con info de sesión (sin implementación de cookies/JWT en este paso)
     return NextResponse.json({
       success: true,
       id_usuario: user.id_usuario,
