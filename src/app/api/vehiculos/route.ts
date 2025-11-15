@@ -1,108 +1,28 @@
+// EN LA RUTA: src/app/api/vehiculos/route.ts
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
-import { validarCamposVacios } from "@/lib/validations";
-import { validarAno, validarPrecio, validarPlaca } from "@/lib/vehiculos-validations";
 import { verificarRol } from "@/lib/auth-check";
+import { validarAno, validarPrecio, validarPlaca } from "@/lib/vehiculos-validations";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
-export async function POST(req: Request) {
-  try {
-    const { marca, modelo, anio, placa, tipo, precio_por_dia, usuario_id } = await req.json();
-
-    // Validar campos obligatorios
-    const ok = validarCamposVacios({ marca, modelo, anio, placa, precio_por_dia, usuario_id });
-    if (!ok) {
-      return NextResponse.json(
-        { error: "Todos los campos obligatorios deben completarse." },
-        { status: 400 }
-      );
-    }
-
-    // Validar permisos: solo empleado o admin
-    const esAutorizado = await verificarRol(usuario_id, ["usuario_interno", "administrador"]);
-    if (!esAutorizado) {
-      return NextResponse.json(
-        { error: "No autorizado. Solo empleados y administradores pueden crear vehículos." },
-        { status: 403 }
-      );
-    }
-
-    // Validar año
-    if (!validarAno(anio)) {
-      return NextResponse.json(
-        { error: "El año debe estar entre 1980 y el año actual." },
-        { status: 400 }
-      );
-    }
-
-    // Validar precio
-    if (!validarPrecio(precio_por_dia)) {
-      return NextResponse.json(
-        { error: "El precio debe ser mayor a 0." },
-        { status: 400 }
-      );
-    }
-
-    // Validar placa
-    if (!validarPlaca(placa)) {
-      return NextResponse.json(
-        { error: "La placa es inválida." },
-        { status: 400 }
-      );
-    }
-
-    // Verificar que la placa sea única
-    const [existePlaca] = await pool.query<RowDataPacket[]>(
-      "SELECT id_vehiculo FROM vehiculos WHERE placa = ?",
-      [placa.trim()]
-    );
-
-    if ((existePlaca as any[]).length > 0) {
-      return NextResponse.json(
-        { error: "La placa ya existe en el sistema." },
-        { status: 400 }
-      );
-    }
-
-    // Insertar vehículo
-    const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO vehiculos (marca, modelo, anio, placa, tipo, precio_por_dia, disponible) VALUES (?, ?, ?, ?, ?, ?, 1)",
-      [marca, modelo, anio, placa.trim(), tipo || null, precio_por_dia]
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "Vehículo registrado correctamente",
-      id_vehiculo: (result as ResultSetHeader).insertId,
-      marca,
-      modelo,
-      anio,
-      placa,
-      tipo,
-      precio_por_dia,
-      disponible: true,
-    });
-  } catch (error: any) {
-    console.error("Error al registrar vehículo:", error);
-    return NextResponse.json(
-      { error: error.message || "Error al registrar vehículo" },
-      { status: 500 }
-    );
-  }
-}
-
+/**
+ * GET /api/vehiculos
+ * Devuelve todos los vehículos (sin restricción de rol)
+ */
 export async function GET() {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id_vehiculo, marca, modelo, anio, placa, tipo, precio_por_dia, disponible FROM vehiculos ORDER BY id_vehiculo DESC"
+      "SELECT id_vehiculo, marca, modelo, anio, placa, tipo, precio_por_dia, disponible FROM vehiculos"
     );
 
     return NextResponse.json({
       success: true,
-      vehiculos: rows,
+      vehiculos: rows || [],
     });
   } catch (error: any) {
-    console.error("Error al obtener vehículos:", error);
+    console.error("Error GET /api/vehiculos:", error);
     return NextResponse.json(
       { error: error.message || "Error al obtener vehículos" },
       { status: 500 }
@@ -110,80 +30,153 @@ export async function GET() {
   }
 }
 
-export async function PUT(req: Request) {
+/**
+ * POST /api/vehiculos
+ * Requiere: usuario_interno o administrador
+ * Body: { marca, modelo, anio, placa, tipo, precio_por_dia, usuario_id }
+ */
+export async function POST(req: Request) {
   try {
-    const { id_vehiculo, marca, modelo, anio, placa, tipo, precio_por_dia, usuario_id, disponible } = await req.json();
+    const body = await req.json();
+    const { marca, modelo, anio, placa, tipo, precio_por_dia, usuario_id } = body;
 
-    // Validar campos obligatorios
-    const ok = validarCamposVacios({ id_vehiculo, usuario_id });
-    if (!ok) {
+    // Validar que usuario_id está presente
+    if (!usuario_id) {
       return NextResponse.json(
-        { error: "id_vehiculo y usuario_id son obligatorios." },
+        { error: "usuario_id es requerido" },
         { status: 400 }
       );
     }
 
-    // Validar permisos: solo empleado o admin
-    const esAutorizado = await verificarRol(usuario_id, ["usuario_interno", "administrador"]);
-    if (!esAutorizado) {
+    // Verificar rol: solo empleado_interno o administrador
+    const autorizado = await verificarRol(usuario_id, ["usuario_interno", "administrador"]);
+    if (!autorizado) {
+      console.warn(`Intento no autorizado de crear vehículo por usuario ${usuario_id}`);
       return NextResponse.json(
-        { error: "No autorizado. Solo empleados y administradores pueden editar vehículos." },
+        { error: "No autorizado. Solo empleados y administradores pueden crear vehículos." },
         { status: 403 }
       );
     }
 
-    // Validaciones opcionales (si se envían)
-    if (anio !== undefined && !validarAno(anio)) {
+    // Validaciones
+    if (!marca || !modelo || !anio || !placa || !precio_por_dia) {
       return NextResponse.json(
-        { error: "El año debe estar entre 1980 y el año actual." },
+        { error: "Campos requeridos: marca, modelo, anio, placa, precio_por_dia" },
         { status: 400 }
       );
     }
 
-    if (precio_por_dia !== undefined && !validarPrecio(precio_por_dia)) {
+    if (!validarAno(anio)) {
       return NextResponse.json(
-        { error: "El precio debe ser mayor a 0." },
+        { error: "Año debe estar entre 1980 y el año actual" },
         { status: 400 }
       );
     }
 
-    // Si cambias placa, verificar que sea única
-    if (placa !== undefined && !validarPlaca(placa)) {
+    if (!validarPrecio(precio_por_dia)) {
       return NextResponse.json(
-        { error: "La placa es inválida." },
+        { error: "Precio debe ser mayor a 0" },
         { status: 400 }
       );
     }
 
-    if (placa !== undefined) {
-      const [existePlaca] = await pool.query<RowDataPacket[]>(
-        "SELECT id_vehiculo FROM vehiculos WHERE placa = ? AND id_vehiculo != ?",
-        [placa.trim(), id_vehiculo]
+    if (!validarPlaca(placa)) {
+      return NextResponse.json(
+        { error: "Placa no válida" },
+        { status: 400 }
       );
+    }
 
-      if ((existePlaca as any[]).length > 0) {
-        return NextResponse.json(
-          { error: "La placa ya existe en el sistema." },
-          { status: 400 }
-        );
-      }
+    // Insertar vehículo
+    const [result] = await pool.query<ResultSetHeader>(
+      "INSERT INTO vehiculos (marca, modelo, anio, placa, tipo, precio_por_dia) VALUES (?, ?, ?, ?, ?, ?)",
+      [marca, modelo, anio, placa, tipo || null, precio_por_dia]
+    );
+
+    return NextResponse.json({
+      success: true,
+      id_vehiculo: (result as ResultSetHeader).insertId,
+      message: "Vehículo registrado correctamente",
+    });
+  } catch (error: any) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return NextResponse.json(
+        { error: "La placa ya está registrada" },
+        { status: 400 }
+      );
+    }
+    console.error("Error POST /api/vehiculos:", error);
+    return NextResponse.json(
+      { error: error.message || "Error al crear vehículo" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PUT /api/vehiculos
+ * Requiere: usuario_interno o administrador
+ * Body: { id_vehiculo, marca, modelo, anio, placa, tipo, precio_por_dia, usuario_id }
+ */
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const { id_vehiculo, marca, modelo, anio, placa, tipo, precio_por_dia, usuario_id } = body;
+
+    // Validar que usuario_id está presente
+    if (!usuario_id) {
+      return NextResponse.json(
+        { error: "usuario_id es requerido" },
+        { status: 400 }
+      );
+    }
+
+    // Verificar rol
+    const autorizado = await verificarRol(usuario_id, ["usuario_interno", "administrador"]);
+    if (!autorizado) {
+      console.warn(`Intento no autorizado de actualizar vehículo por usuario ${usuario_id}`);
+      return NextResponse.json(
+        { error: "No autorizado. Solo empleados y administradores pueden actualizar vehículos." },
+        { status: 403 }
+      );
+    }
+
+    if (!id_vehiculo) {
+      return NextResponse.json(
+        { error: "id_vehiculo es requerido" },
+        { status: 400 }
+      );
+    }
+
+    // Validaciones (si se proporciona)
+    if (anio && !validarAno(anio)) {
+      return NextResponse.json(
+        { error: "Año debe estar entre 1980 y el año actual" },
+        { status: 400 }
+      );
+    }
+
+    if (precio_por_dia && !validarPrecio(precio_por_dia)) {
+      return NextResponse.json(
+        { error: "Precio debe ser mayor a 0" },
+        { status: 400 }
+      );
+    }
+
+    if (placa && !validarPlaca(placa)) {
+      return NextResponse.json(
+        { error: "Placa no válida" },
+        { status: 400 }
+      );
     }
 
     // Actualizar vehículo
     const [result] = await pool.query<ResultSetHeader>(
-      `UPDATE vehiculos 
-       SET marca = COALESCE(?, marca),
-           modelo = COALESCE(?, modelo),
-           anio = COALESCE(?, anio),
-           placa = COALESCE(?, placa),
-           tipo = COALESCE(?, tipo),
-           precio_por_dia = COALESCE(?, precio_por_dia),
-           disponible = COALESCE(?, disponible)
-       WHERE id_vehiculo = ?`,
-      [marca, modelo, anio, placa ? placa.trim() : null, tipo, precio_por_dia, disponible, id_vehiculo]
+      "UPDATE vehiculos SET marca = ?, modelo = ?, anio = ?, placa = ?, tipo = ?, precio_por_dia = ? WHERE id_vehiculo = ?",
+      [marca, modelo, anio, placa, tipo || null, precio_por_dia, id_vehiculo]
     );
 
-    if (result.affectedRows === 0) {
+    if ((result as ResultSetHeader).affectedRows === 0) {
       return NextResponse.json(
         { error: "Vehículo no encontrado" },
         { status: 404 }
@@ -195,7 +188,13 @@ export async function PUT(req: Request) {
       message: "Vehículo actualizado correctamente",
     });
   } catch (error: any) {
-    console.error("Error al actualizar vehículo:", error);
+    if (error.code === "ER_DUP_ENTRY") {
+      return NextResponse.json(
+        { error: "La placa ya está registrada" },
+        { status: 400 }
+      );
+    }
+    console.error("Error PUT /api/vehiculos:", error);
     return NextResponse.json(
       { error: error.message || "Error al actualizar vehículo" },
       { status: 500 }

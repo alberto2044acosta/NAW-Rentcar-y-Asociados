@@ -1,89 +1,77 @@
+// EN LA RUTA: src/app/api/usuarios/registrar-empleado/route.ts
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
-import bcrypt from "bcryptjs";
-import { validarCorreo, validarContrasena, validarCamposVacios } from "@/lib/validations";
 import { verificarRol } from "@/lib/auth-check";
+import bcrypt from "bcryptjs";
 import type { ResultSetHeader, RowDataPacket } from "mysql2";
 
+/**
+ * POST /api/usuarios/registrar-empleado
+ * Requiere: administrador
+ * Body: { nombre, correo, contrasena, usuario_id }
+ */
 export async function POST(req: Request) {
   try {
-    const { nombre, correo, contrasena, admin_id } = await req.json();
+    const { nombre, correo, contrasena, usuario_id } = await req.json();
 
-    // Validar campos obligatorios
-    const ok = validarCamposVacios({ nombre, correo, contrasena, admin_id });
-    if (!ok) {
+    // Validar usuario_id
+    if (!usuario_id) {
       return NextResponse.json(
-        { error: "Todos los campos obligatorios deben completarse." },
+        { error: "usuario_id es requerido" },
         { status: 400 }
       );
     }
 
-    // Validar formato correo y contraseña
-    validarCorreo(correo);
-    validarContrasena(contrasena);
-
-    // Verificar que admin_id pertenece a un administrador
-    const esAdmin = await verificarRol(admin_id, ["administrador"]);
+    // Verificar rol: solo administrador puede registrar empleados
+    const esAdmin = await verificarRol(usuario_id, ["administrador"]);
     if (!esAdmin) {
+      console.warn(`Intento no autorizado de registrar empleado por usuario ${usuario_id}`);
       return NextResponse.json(
-        { error: "No autorizado. Solo administradores pueden crear empleados." },
+        { error: "No autorizado. Solo administradores pueden registrar empleados." },
         { status: 403 }
       );
     }
 
-    // Verificar que correo no exista ya
-    const [existe] = await pool.query<RowDataPacket[]>(
+    // Validaciones
+    if (!nombre || !correo || !contrasena) {
+      return NextResponse.json(
+        { error: "nombre, correo y contrasena son requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Verificar que correo no exista
+    const [existing] = await pool.query<RowDataPacket[]>(
       "SELECT id_usuario FROM usuarios WHERE correo = ?",
       [correo]
     );
-
-    if ((existe as any[]).length > 0) {
+    if ((existing as any[]).length > 0) {
       return NextResponse.json(
         { error: "El correo ya está registrado" },
         { status: 400 }
       );
     }
 
-    // Encriptar contraseña
+    // Hashear contraseña
     const hashedPassword = await bcrypt.hash(contrasena, 10);
 
-    // Crear usuario con tipo = 'usuario_interno' (empleado)
+    // Insertar empleado con tipo 'usuario_interno'
     const [result] = await pool.query<ResultSetHeader>(
-      "INSERT INTO usuarios (nombre, correo, contrasena, tipo, activo) VALUES (?, ?, ?, ?, 1)",
+      "INSERT INTO usuarios (nombre, correo, contrasena, tipo) VALUES (?, ?, ?, ?)",
       [nombre, correo, hashedPassword, "usuario_interno"]
     );
 
     return NextResponse.json({
       success: true,
-      message: "Empleado registrado correctamente",
       id_usuario: (result as ResultSetHeader).insertId,
-      nombre,
-      correo,
-      tipo: "usuario_interno",
+      message: "Empleado registrado correctamente",
     });
   } catch (error: any) {
-    console.error("Error al registrar empleado:", error);
+    console.error("Error POST /api/usuarios/registrar-empleado:", error);
     return NextResponse.json(
       { error: error.message || "Error al registrar empleado" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET() {
-  try {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      "SELECT id_usuario, nombre, correo, tipo, activo, fecha_registro FROM usuarios WHERE tipo = 'usuario_interno' ORDER BY fecha_registro DESC"
-    );
-
-    return NextResponse.json({
-      success: true,
-      empleados: rows,
-    });
-  } catch (error: any) {
-    console.error("Error al obtener empleados:", error);
-    return NextResponse.json(
-      { error: error.message || "Error al obtener empleados" },
       { status: 500 }
     );
   }

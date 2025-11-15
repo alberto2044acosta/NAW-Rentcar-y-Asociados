@@ -41,7 +41,12 @@ export default function VehiculosPage() {
       const res = await fetch("/api/vehiculos");
       const data = await res.json();
       if (res.ok && data.success) {
-        setVehiculos(data.vehiculos);
+        // Convertir precio_por_dia a número
+        const vehiculosConPrecioNumerico = (data.vehiculos || []).map((veh: any) => ({
+          ...veh,
+          precio_por_dia: parseFloat(veh.precio_por_dia),
+        }));
+        setVehiculos(vehiculosConPrecioNumerico);
       }
     } catch (err) {
       console.error("Error cargando vehículos:", err);
