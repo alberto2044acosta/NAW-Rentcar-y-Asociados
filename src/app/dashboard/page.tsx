@@ -33,8 +33,8 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold mb-2">Cliente</h2>
           <div className="grid gap-3 sm:grid-cols-2 max-w-xl">
             <button onClick={() => go("/buscar-vehiculos")} className="p-3 bg-blue-600 text-white rounded">Buscar vehículos</button>
-            <button onClick={() => go("/reservas/mis-reservas")} className="p-3 bg-green-600 text-white rounded">Mis reservas</button>
-            <button onClick={() => go("/pagos/mis-pagos")} className="p-3 bg-indigo-600 text-white rounded">Mis pagos</button>
+            <button onClick={() => go("/reservas")} className="p-3 bg-green-600 text-white rounded">Reservar vehículo</button>
+            <button onClick={() => go("/reservas/mis-reservas")} className="p-3 bg-indigo-600 text-white rounded">Mis reservas</button>
             <button onClick={() => go("/perfil/editar")} className="p-3 bg-gray-200 rounded">Editar perfil</button>
           </div>
         </section>
@@ -59,6 +59,7 @@ export default function DashboardPage() {
             <button onClick={() => go("/admin/registrar-empleado")} className="p-3 bg-red-600 text-white rounded">Registrar empleado</button>
             <button onClick={() => go("/vehiculos")} className="p-3 bg-yellow-600 text-white rounded">Gestionar vehículos</button>
             <button onClick={() => go("/buscar-vehiculos")} className="p-3 bg-blue-600 text-white rounded">Buscar vehículos</button>
+            <button onClick={() => go("/reservas")} className="p-3 bg-green-600 text-white rounded">Reservas</button>
             <button onClick={() => go("/admin/reglas-precio")} className="p-3 bg-indigo-600 text-white rounded">Definir reglas de precio</button>
             <button onClick={() => go("/admin/auditoria")} className="p-3 bg-gray-200 rounded">Ver auditoría y caja</button>
           </div>
